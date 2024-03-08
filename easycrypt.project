@@ -1,0 +1,10 @@
+[general]
+timeout = 30
+
+provers = Alt-Ergo@2.4
+provers = CVC4@1.8
+provers = Z3@4.8
+
+rdirs = Jasmin:jasmin/eclib
+idirs = crypto-specs/common
+rdirs = crypto-specs/fips202
