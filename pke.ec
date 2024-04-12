@@ -9,6 +9,7 @@ require import BitEncoding.
 (*---*) import BitChunking.
 
 from Jasmin require import JWord.
+from Jasmin require import JArray.
 
 op q: int = 32768 axiomatized by qE.
 op N: int = 640 axiomatized by nE.
@@ -116,12 +117,12 @@ module Encoding = {
     return ofarray b;
   }
 
-  proc unpack(b: bool list, n1: int, n2: int):  M.t = {
+  proc unpack(bs: bool list, n1: int, n2: int):  M.t = {
     var i, j, l, ac;
     var arrb: bool array;
     var c: M.t;
 
-    arrb <- mkarray b;
+    arrb <- mkarray bs;
 
     i <- 0;
     while (i < n1) {
@@ -222,69 +223,82 @@ module GenA = {
   }
 }.
 
+clone export PolyArray as ArrayPNNb  with op size <- D*N*Nb%/8.
+clone export PolyArray as ArrayPNbN  with op size <- D*Nb*N%/8.
+clone export PolyArray as ArrayPNbNb  with op size <- D*Nb*Nb%/8.
+print ArrayPNNb.
+
 theory PKE.
 type seedA = W128.t.
 (* (n,nb) *)
 type B = M.t.
 
-type pkey = seedA * B.
+type pkey = W128.t * W8.t ArrayPNNb.t.
 (* (nb,n) *)
 type skey = M.t.
 
-type ciphertext = M.t * M.t. (* (nb,n), (nb,nb) *)
+type ciphertext = W8.t ArrayPNbN.t * W8.t ArrayPNbNb.t.
 type plaintext = W128.t.
 
 
 module PKE = {
   proc kg_derand(coins: W128.t * W256.t) : pkey * skey = {
-    var a, b, e, st: M.t; (* a: (n, n), b, e: (n, nb), st: (nb, n) *)
+    var ma, mb, me, mst: M.t; (* a: (n, n), b, e: (n, nb), st: (nb, n) *)
     var seedA: W128.t;
     var seedSE: W256.t;
     var r: W16.t list;
+    var b: bool list;
 
     seedA <- coins.`1;
     seedSE <- coins.`2;
 
-    a <@ GenA.init(seedA);
+    ma <@ GenA.init(seedA);
 
     r <- w8ltoW16l (SHAKE128 (mask5f :: w256toW8l seedSE) (4*N*Nb));
-    st <@ Sample.matrix(mkarray (take (N*Nb) r), Nb, N);
-    e <@ Sample.matrix(mkarray (drop (N*Nb) r), N, Nb);
+    mst <@ Sample.matrix(mkarray (take (N*Nb) r), Nb, N);
+    me <@ Sample.matrix(mkarray (drop (N*Nb) r), N, Nb);
 
-    b <- a * (trmx st) + e;
+    mb <- ma * (trmx mst) + me;
+    b <@ Encoding.pack(mb, N, Nb);
 
-
-    return ((seedA, b), st);
+    return ((seedA, ArrayPNNb.of_list witness (tobytes b)), mst);
   }
 
   proc enc_derand(pt: plaintext, pk: pkey, coins: W256.t): ciphertext = {
-    var a, s', e', e'', b', v, mu, c2: M.t; (* a: (n, n), s', e', b': (nb, n), e'', v, mu, c2: (nb, nb) *)
+    var ma, mb, ms', me', me'', mb', mu, mv, mc: M.t;
+    var c1, c2;
     var seedA, b;
     var r: W16.t list;
 
     (seedA, b) <- pk;
-    a <@ GenA.init(seedA);
+    ma <@ GenA.init(seedA);
+    mb <@ Encoding.unpack(concatMap W8.w2bits (ArrayPNNb.to_list b), N, Nb);
 
     r <- w8ltoW16l (SHAKE128 (mask96 :: w256toW8l coins) (4*N*Nb + 2*Nb*Nb));
-    s' <@ Sample.matrix(mkarray (take (N*Nb) r), Nb, N);
-    e' <@ Sample.matrix(mkarray (take (N*Nb) (drop (N*Nb) r)), Nb, N);
-    e'' <@ Sample.matrix(mkarray (drop (2*N*Nb) r), Nb, Nb);
+    ms' <@ Sample.matrix(mkarray (take (N*Nb) r), Nb, N);
+    me' <@ Sample.matrix(mkarray (take (N*Nb) (drop (N*Nb) r)), Nb, N);
+    me'' <@ Sample.matrix(mkarray (drop (2*N*Nb) r), Nb, Nb);
 
-    b' <- s' * a + e';
-    v <- s' * b + e'';
+    mb' <- ms' * ma + me';
+    c1 <@ Encoding.pack(mb', Nb, N);
 
     mu <@ Encoding.encode(mkarray (W128.w2bits pt));
-    c2 <- v + mu;
+    mv <- ms' * mb + me'';
+    mc <- mv + mu;
+    c2 <@ Encoding.pack(mc, Nb, Nb);
 
-    return (b', c2);
+    return (ArrayPNbN.of_list witness (tobytes c1), ArrayPNbNb.of_list witness (tobytes c2));
   }
 
   proc dec(ct: ciphertext, sk: skey): plaintext = {
-    var c1, c2, m: M.t; (* c1: (nb, n), c2: (nb, nb) *)
+    var c1, c2;
+    var mb', mc, m: M.t; (* c1: (nb, n), c2: (nb, nb) *)
     var u;
 
     (c1, c2) <- ct;
-    m <- c2 - c1 * (trmx sk);
+    mb' <@ Encoding.unpack(concatMap W8.w2bits (ArrayPNbN.to_list c1), Nb, N);
+    mc <@ Encoding.unpack(concatMap W8.w2bits (ArrayPNbNb.to_list c2), Nb, Nb);
+    m <- mc - mb' * (trmx sk);
 
     u <@ Encoding.decode(m);
 

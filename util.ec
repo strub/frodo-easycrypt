@@ -15,3 +15,5 @@ op w8ltoW128(xs: W8.t list): W128.t = W128.bits2w (concatMap W8.w2bits xs).
 op w8ltoW256(xs: W8.t list): W256.t = W256.bits2w (concatMap W8.w2bits xs).
 op w128toW8l (x: W128.t): W8.t list = map W8.bits2w (chunk W8.size (W128.w2bits x)).
 op w256toW8l (x: W256.t): W8.t list = map W8.bits2w (chunk W8.size (W256.w2bits x)).
+
+

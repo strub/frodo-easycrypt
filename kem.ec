@@ -1,27 +1,31 @@
 require import AllCore Int Real List IntDiv.
 from Jasmin require import JWord.
 
-type publickey = PKE.seedA * W8.t list.
+type publickey = PKE.pkey.
 type secretkey = W128.t * publickey * PKE.skey * W128.t.
-type ciphertext = W8.t list * W8.t list * W256.t.
+type ciphertext = PKE.ciphertext * W256.t.
 type sharedsecret = W128.t.
+
+op G1 (pk: publickey): W128.t = w8ltoW128 (SHAKE128 (w128toW8l pk.`1 ++ ArrayPNNb.to_list pk.`2) 16).
+op H_z (z: W128.t): W128.t = w8ltoW128 (SHAKE128 (w128toW8l z) 16).
+op G2 (pkh: W128.t) (coins: W128.t * W256.t): (W256.t * W128.t) =
+    mapT w8ltoW256 w8ltoW128
+      (splitAt 32 (SHAKE128 (w128toW8l pkh ++ w128toW8l coins.`1 ++ w256toW8l coins.`2) 48)).
+
+op F (ct: PKE.ciphertext) (salt: W256.t) (k: W128.t): sharedsecret =
+    w8ltoW128 (SHAKE128 (ArrayPNbN.to_list ct.`1 ++ ArrayPNbNb.to_list ct.`2 ++ w256toW8l salt ++ w128toW8l k) 16).
 
 module FrodoKEM = {
   proc kg_derand(coins: W128.t * W256.t * W128.t): publickey * secretkey = {
     var s, seedSE, z, seedA;
-    var _pk, pk, sk;
-    var b, matb;
+    var pk, sk;
     var pkh;
 
     (s, seedSE, z) <- coins;
 
-    seedA <- w8ltoW128 (SHAKE128 (w128toW8l z) 16);
-    (_pk, sk) <@ PKE.PKE.kg_derand((seedA,seedSE));
-    (seedA, matb) <- _pk;
-    b <@ Encoding.pack(matb, N, Nb);
-    pkh <- w8ltoW128 (SHAKE128 (tobytes (W128.w2bits seedA ++ b)) 16);
-
-    pk <- (seedA, tobytes b);
+    seedA <- H_z z;
+    (pk, sk) <@ PKE.PKE.kg_derand((seedA,seedSE));
+    pkh <- G1 pk;
 
     return (pk, (s, pk, sk, pkh));
   }
@@ -30,68 +34,37 @@ module FrodoKEM = {
     var u, pkh, k: W128.t;
     var salt, seedSE: W256.t;
     var _b, mc1, mc2: M.t;
-    var _c1, _c2: bool list;
+    var ct;
     var ss: W128.t;
 
     (u, salt) <- coins;
-    pkh <- w8ltoW128 (SHAKE128 (w128toW8l pk.`1 ++ pk.`2) 16);
-    _b <@ Encoding.unpack(concatMap W8.w2bits pk.`2, N, Nb);
+    pkh <- G1 pk;
+    (seedSE, k) <- G2 pkh coins;
+    ct <@ PKE.PKE.enc_derand(u, pk, seedSE);
+    ss <- F ct salt k;
 
-    (seedSE, k) <- mapT w8ltoW256 w8ltoW128
-      (splitAt 32 (SHAKE128 (w128toW8l pkh ++ w128toW8l u ++ w256toW8l salt) 48));
-
-    (mc1, mc2) <@ PKE.PKE.enc_derand(u, (pk.`1, _b), seedSE);
-    _c1 <@ Encoding.pack (mc1, Nb, N);
-    _c2 <@ Encoding.pack (mc2, Nb, Nb);
-
-    ss <- w8ltoW128 (SHAKE128 (tobytes (_c1 ++ _c2) ++ w256toW8l salt ++ w128toW8l k) 16);
-
-    return ((tobytes _c1, tobytes _c2, salt), ss);
+    return ((ct, salt), ss);
   }
 
   proc dec(ct: ciphertext, sk: secretkey): sharedsecret = {
-    var pk;
-    var c1, c2, salt;
-    var s, seedA, b, st, pkh;
-    var mb', mc: M.t;
-    var u';
+    var s, pk, st, pkh;
+    var u', ct1, ct2, salt;
     var seedSE', k';
-    var r;
-    var ms', me', me'', mb, mb'', ma, mv: M.t;
-    var mu, mc': M.t;
     var ss;
 
     (s, pk, st, pkh) <- sk;
-    (seedA, b) <- pk;
-    (c1, c2, salt) <- ct;
-    mb' <@ Encoding.unpack(concatMap W8.w2bits c1, Nb, N);
-    mc <@ Encoding.unpack(concatMap W8.w2bits c2, Nb, Nb);
+    (ct1, salt) <- ct;
 
-    u' <@ PKE.PKE.dec((mb',mc), st);
+    u' <@ PKE.PKE.dec(ct1, st);
+    (seedSE', k') <- G2 pkh (u', salt);
 
-    (seedSE', k') <- mapT w8ltoW256 w8ltoW128
-      (splitAt 32 (SHAKE128 (w128toW8l pkh ++ w128toW8l u' ++ w256toW8l salt) 48));
+    ct2 <@ PKE.PKE.enc_derand(u', pk, seedSE');
 
-    r <- w8ltoW16l (SHAKE128 (mask96 :: w256toW8l seedSE') (4*N*Nb + 2*Nb*Nb));
-
-    ms' <@ Sample.matrix(mkarray (take (N*Nb) r), Nb, N);
-    me' <@ Sample.matrix(mkarray (take (N*Nb) (drop (N*Nb) r)), Nb, N);
-    ma <@ GenA.init(seedA);
-
-    mb'' <- ms' * ma + me';
-    me'' <@ Sample.matrix(mkarray (take (Nb*Nb) (drop (2*N*Nb) r)), Nb, Nb);
-
-    mb <@ Encoding.unpack(concatMap W8.w2bits b, N, Nb);
-    mv <- ms'*mb + me'';
-
-    mu <@ Encoding.encode(mkarray (W128.w2bits u'));
-    mc' <- mv + mu;
-
-    if (mb' <> mb'' && mc <> mc') {
+    if (ct1 <> ct2) {
        k' <- s;
     }
 
-    ss <- w8ltoW128 (SHAKE128 (c1 ++ c2 ++ w256toW8l salt ++ w128toW8l k') 16);
+    ss <- F ct1 salt k';
     return ss;
   }
 }.
