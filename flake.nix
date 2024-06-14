@@ -7,6 +7,10 @@
       url = "github:Easycrypt/easycrypt?ref=f290633307d6709d6e747df88108a912771e2bb2";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
+    jasmin-nightly = {
+        url = "github:jasmin-lang/jasmin/83e232e0d0a1c056e6a66e04ff76379c4b5a376b";
+        flake = false;
+    };
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
@@ -14,13 +18,14 @@
     };
   };
 
-  outputs = inputs@{ flake-parts, nixpkgs, easycrypt-nightly, ... }:
+  outputs = inputs@{ flake-parts, nixpkgs, easycrypt-nightly, jasmin-nightly, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [ ];
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
-      perSystem = { pkgs, system, inputs', ... }:
+      perSystem = { pkgs, system, ... }:
         let
           easycrypt = easycrypt-nightly.packages.${system};
+          jasminc = pkgs.callPackage "${jasmin-nightly}/default.nix" { inherit pkgs; };
         in
         {
           # Per-system attributes can be defined here. The self' and inputs'
@@ -33,15 +38,17 @@
             config.allowUnfree = true;
           };
 
-          devShells.default = with pkgs; mkShellNoCC {
-            packages = [
-              direnv
-              nix-direnv
+          devShells.default = pkgs.mkShellNoCC {
+            packages = builtins.attrValues {
+              easycrypt = easycrypt.with_provers;
+              jasminc = jasminc;
 
-              emacsPackages.proof-general
-              easycrypt.with_provers
-              why3
-            ];
+              inherit (pkgs)
+                direnv
+                nix-direnv
+
+                why3;
+            };
 
             shellHook = ''
               export PATH=$PWD/bin:$PATH

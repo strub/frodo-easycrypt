@@ -98,6 +98,23 @@
         "type": "github"
       }
     },
+    "jasmin-nightly": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1717397022,
+        "narHash": "sha256-sVViTEZMAsP6y9xswajvl8inaeWDA7rG/eGu2KM6XtM=",
+        "owner": "jasmin-lang",
+        "repo": "jasmin",
+        "rev": "83e232e0d0a1c056e6a66e04ff76379c4b5a376b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jasmin-lang",
+        "repo": "jasmin",
+        "rev": "83e232e0d0a1c056e6a66e04ff76379c4b5a376b",
+        "type": "github"
+      }
+    },
     "mirage-opam-overlays": {
       "flake": false,
       "locked": {
@@ -279,6 +296,7 @@
       "inputs": {
         "easycrypt-nightly": "easycrypt-nightly",
         "flake-parts": "flake-parts",
+        "jasmin-nightly": "jasmin-nightly",
         "nixpkgs": "nixpkgs_2"
       }
     },
