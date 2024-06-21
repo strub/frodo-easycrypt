@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     easycrypt-nightly = {
-      url = "github:Easycrypt/easycrypt?ref=f290633307d6709d6e747df88108a912771e2bb2";
+      url = "github:Easycrypt/easycrypt?ref=1ad6fedd02da81c549b6d74908252b585bd2ea18";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     jasmin-nightly = {
