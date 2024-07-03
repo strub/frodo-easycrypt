@@ -1,13 +1,11 @@
 require import AllCore Distr List SmtMap Dexcepted PKE_ROM StdOrder.
-require (**RndExcept **) MLWE FLPRG.
+require (**RndExcept **) LWE FLPRG.
 
 theory MLWE_PKE_Hash.
 
-clone import MLWE as MLWE_.
-import Matrix_.
+clone import LWE as LWE_.
+import Matrix.
 import ZR.
-
-import StdOrder.IntOrder Matrix_ Big.BAdd.
 
 type plaintext.
 type ciphertext.
@@ -45,31 +43,32 @@ op prg_kg : randomness -> seed * matrix * matrix.
 op prg_kg_ideal  = 
      dlet dseed
        (fun (sd : seed) => 
-          dlet dshort_matrix (fun (s : matrix) => 
-               dmap dshort_matrix (fun (e : matrix) => (sd, s, e)))).
+          dlet (Chi_matrix n nb) (fun (s : matrix) => 
+               dmap (Chi_matrix n nb) (fun (e : matrix) => (sd, s, e)))).
 
 op prg_enc : randomness -> matrix * matrix * matrix.
 op prg_enc_ideal = 
-     dlet dshort_matrix
+     dlet (Chi_matrix mb n)
        (fun (s' : matrix) => 
-          dlet dshort_matrix (fun (e' : matrix) => 
-               dmap dshort_matrix (fun (e'' : matrix) => (s', e', e'')))).
+          dlet (Chi_matrix mb n) (fun (e' : matrix) => 
+               dmap (Chi_matrix mb nb)  (fun (e'' : matrix) => (s', e', e'')))).
 
 op kg(r : randomness) : pkey * skey = 
    let (sd,s,e) = prg_kg r in
-   let t =  (H sd) * s + e in
-       (pk_encode (sd,t),sk_encode s).
+   let _B =  (H sd n n) * s + e in
+       (pk_encode (sd,_B),sk_encode s).
 
 op enc(rr : randomness, pk : pkey, m : plaintext) : ciphertext = 
-    let (sd,b) = pk_decode pk in
+    let (sd,_B) = pk_decode pk in
     let (s',e',e'') = prg_enc rr in
-    let b' = s' * (H sd) + e' in
-    let v = s' * b + e'' in
-        c_encode (b',v + m_encode m).
+    let _B' = s' * (H sd n n) + e' in
+    let v = s' * _B + e'' in
+        c_encode (_B',v + m_encode m).
+
 
 op dec(sk : skey, c : ciphertext) : plaintext option =
     let (c1,c2) = c_decode c in
-       Some (m_decode (c2 + -(c1 * m_transpose (sk_decode sk)))).
+       Some (m_decode (c2 + -(c1 * trmx (sk_decode sk)))).
 
 (******************************************************************)
 (*    The Security Games                                          *)
@@ -106,19 +105,19 @@ module MLWE_PKE_HASH_PROC : Scheme = {
   proc kg(): pkey * skey = {
     var sd,s,e,t;
     sd <$ dseed;
-    s  <$ dshort_matrix;
-    e  <$ dshort_matrix;
-    t  <- (H sd) * s + e;
+    s  <$ Chi_matrix n nb;
+    e  <$ Chi_matrix n nb;
+    t  <- (H sd n n) * s + e;
     return (pk_encode (sd,t),sk_encode s);
   }
 
   proc enc(pk : pkey, m : plaintext) : ciphertext = {
     var sd, b,s',e',e'',b',v;
     (sd,b) <- pk_decode pk;
-    s'  <$ dshort_matrix;
-    e' <$ dshort_matrix;
-    e'' <$ dshort_matrix;
-    b'  <- s' * (H sd) + e';
+    s'  <$ Chi_matrix mb n;
+    e' <$ Chi_matrix mb n;
+    e'' <$ Chi_matrix mb nb;
+    b'  <- s' * (H sd n n) + e';
     v  <- s' * b + e'';
     return c_encode (b',v + m_encode m);
   }
@@ -126,7 +125,7 @@ module MLWE_PKE_HASH_PROC : Scheme = {
   proc dec(sk : skey, c : ciphertext) : plaintext option = {
     var c1,c2;
     (c1,c2) <- c_decode c;
-    return (Some (m_decode (c2 + -(c1 * m_transpose (sk_decode sk)))));
+    return (Some (m_decode (c2 + -(c1 * trmx (sk_decode sk)))));
   }
 }.
 
@@ -156,14 +155,14 @@ module MLWE_PKE_HASH_PRG : Scheme  = {
 
   proc kg() : pkey * skey = {
      var t;
-     t <-  (H sd) * s + e;
+     t <-  (H sd n n) * s + e;
      return (pk_encode (sd,t),sk_encode s);
   }
 
   proc enc(pk : pkey, m : plaintext) : ciphertext = {
      var sd,b,b',v;
      (sd,b) <- pk_decode pk;
-     b' <- s' * (H sd) + e';
+     b' <- s' * (H sd n n) + e';
      v <- s' * b + e'';
      return c_encode (b',v + m_encode m);
   }
@@ -196,9 +195,6 @@ module (D_ENC(A : Adversary) : PRG_ENC.Distinguisher) = {
    }      
 }.
 
-print PRG_KG.
-print CPA.
-
 section.
 declare module A <: Adversary {-MLWE_PKE_HASH_PRG}.
 
@@ -215,17 +211,14 @@ have -> : Pr[CPA(MLWE_PKE_HASH,A).main() @ &m : res]  =
   byequiv => //.
   proc.
   inline *.
-  swap {1} 8 -6.
-  wp.
-  call (: true).
-  wp. rnd. call (_: true).
-  auto => /#. 
-
+  swap {1} 8 -4.
+  by wp;call (: true);wp;rnd;call (_: true);auto => /> /#.
+  
 have -> : Pr[CPA(MLWE_PKE_HASH_PROC, A).main() @ &m : res]   = 
         Pr[PRG_ENC.IND(PRGi, D_ENC(A)).main() @ &m : res].
 + byequiv => //.
   proc. inline *. swap {1} [11..13] -7. swap {2} 3 -1.  swap {2} 6 -4. swap {2} 4 5.
-seq 0 1: #pre;1: by auto.
+seq 0 1: #pre; 1: by auto.
 seq 3 1 : (#pre /\
     (sd,s,e){1} = 
     (MLWE_PKE_HASH_PRG.sd, MLWE_PKE_HASH_PRG.s, MLWE_PKE_HASH_PRG.e){2}). rndsem{1} 0. by auto.
