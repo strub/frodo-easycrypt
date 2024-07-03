@@ -1,5 +1,5 @@
 require import AllCore Distr List SmtMap Dexcepted PKE_ROM StdOrder.
-require (**RndExcept **) MLWE.
+require (**RndExcept **) MLWE FLPRG.
 
 theory MLWE_PKE_Hash.
 
@@ -42,8 +42,18 @@ type randomness.
 op [uniform full lossless]drand : randomness distr.
 
 op prg_kg : randomness -> seed * matrix * matrix.
+op prg_kg_ideal  = 
+     dlet dseed
+       (fun (sd : seed) => 
+          dlet dshort_matrix (fun (s : matrix) => 
+               dmap dshort_matrix (fun (e : matrix) => (sd, s, e)))).
 
 op prg_enc : randomness -> matrix * matrix * matrix.
+op prg_enc_ideal = 
+     dlet dshort_matrix
+       (fun (s' : matrix) => 
+          dlet dshort_matrix (fun (e' : matrix) => 
+               dmap dshort_matrix (fun (e'' : matrix) => (s', e', e'')))).
 
 op kg(r : randomness) : pkey * skey = 
    let (sd,s,e) = prg_kg r in
@@ -69,7 +79,7 @@ clone import PKE with
   type plaintext <- plaintext,
   type ciphertext <- ciphertext.
 
-module DLWE_PKE_HASH : Scheme = {
+module MLWE_PKE_HASH : Scheme = {
 
   proc kg() : pkey * skey = {
      var r,pk,sk;
@@ -92,7 +102,7 @@ module DLWE_PKE_HASH : Scheme = {
   }
 }.
 
-module DLWE_PKE_HASH_PROC : Scheme = {
+module MLWE_PKE_HASH_PROC : Scheme = {
   proc kg(): pkey * skey = {
     var sd,s,e,t;
     sd <$ dseed;
@@ -120,6 +130,115 @@ module DLWE_PKE_HASH_PROC : Scheme = {
   }
 }.
 
+clone import FLPRG as PRG_KG with
+  type seed <- randomness,
+  type output <- seed * matrix * matrix,
+  op prg <- prg_kg,
+  op dseed <- drand,
+  op dout <- prg_kg_ideal
+  proof *. 
 
-print DLWE_PKE_HASH_PROC.
-print MLWE_H.
+clone import FLPRG as PRG_ENC with
+  type seed <- randomness,
+  type output <- matrix * matrix * matrix,
+  op prg <- prg_enc,
+  op dseed <- drand,
+  op dout <- prg_enc_ideal
+  proof*.
+
+module MLWE_PKE_HASH_PRG : Scheme  = {
+  var sd : seed
+  var s  : matrix
+  var e  : matrix
+  var s'  : matrix
+  var e' : matrix
+  var e'' : matrix
+
+  proc kg() : pkey * skey = {
+     var t;
+     t <-  (H sd) * s + e;
+     return (pk_encode (sd,t),sk_encode s);
+  }
+
+  proc enc(pk : pkey, m : plaintext) : ciphertext = {
+     var sd,b,b',v;
+     (sd,b) <- pk_decode pk;
+     b' <- s' * (H sd) + e';
+     v <- s' * b + e'';
+     return c_encode (b',v + m_encode m);
+  }
+
+  include MLWE_PKE_HASH [dec]
+}.
+
+module (D_KG(A : Adversary) : PRG_KG.Distinguisher)  = {
+   proc distinguish(sd : seed, s : matrix, e : matrix) : bool = {
+       var coins,b;
+       MLWE_PKE_HASH_PRG.sd <- sd;
+       MLWE_PKE_HASH_PRG.s <- s;
+       MLWE_PKE_HASH_PRG.e <- e;
+       coins <$ drand;
+       (MLWE_PKE_HASH_PRG.s',MLWE_PKE_HASH_PRG.e',MLWE_PKE_HASH_PRG.e'') <- prg_enc coins;
+       b <@ CPA(MLWE_PKE_HASH_PRG,A).main();
+       return b;
+   }      
+}.
+
+module (D_ENC(A : Adversary) : PRG_ENC.Distinguisher) = {
+   proc distinguish(s' : matrix, e' : matrix, e'' : matrix) : bool = {
+       var b;
+       (MLWE_PKE_HASH_PRG.sd,MLWE_PKE_HASH_PRG.s,MLWE_PKE_HASH_PRG.e) <$ prg_kg_ideal;
+       MLWE_PKE_HASH_PRG.s' <- s';
+       MLWE_PKE_HASH_PRG.e' <- e';
+       MLWE_PKE_HASH_PRG.e'' <- e'';
+       b <@ CPA(MLWE_PKE_HASH_PRG,A).main();
+       return b;
+   }      
+}.
+
+print PRG_KG.
+print CPA.
+
+section.
+declare module A <: Adversary {-MLWE_PKE_HASH_PRG}.
+
+lemma cpa_proc &m : 
+  Pr[CPA(MLWE_PKE_HASH,A).main() @ &m : res] -
+   Pr[CPA(MLWE_PKE_HASH_PROC,A).main() @ &m : res] = 
+     Pr [ PRG_KG.IND(PRG_KG.PRGr,D_KG(A)).main() @ &m : res ] -
+        Pr [ PRG_KG.IND(PRG_KG.PRGi,D_KG(A)).main() @ &m : res ] +
+     Pr [ PRG_ENC.IND(PRG_ENC.PRGr,D_ENC(A)).main() @ &m : res ] -
+        Pr [ PRG_ENC.IND(PRG_ENC.PRGi, D_ENC(A)).main() @ &m : res ].
+proof. 
+have -> : Pr[CPA(MLWE_PKE_HASH,A).main() @ &m : res]  = 
+  Pr [ PRG_KG.IND(PRG_KG.PRGr,D_KG(A)).main() @ &m : res ].
+  byequiv => //.
+  proc.
+  inline *.
+  swap {1} 8 -6.
+  wp.
+  call (: true).
+  wp. rnd. call (_: true).
+  auto => /#. 
+
+have -> : Pr[CPA(MLWE_PKE_HASH_PROC, A).main() @ &m : res]   = 
+        Pr[PRG_ENC.IND(PRGi, D_ENC(A)).main() @ &m : res].
++ byequiv => //.
+  proc. inline *. swap {1} [11..13] -7. swap {2} 3 -1.  swap {2} 6 -4. swap {2} 4 5.
+seq 0 1: #pre;1: by auto.
+seq 3 1 : (#pre /\
+    (sd,s,e){1} = 
+    (MLWE_PKE_HASH_PRG.sd, MLWE_PKE_HASH_PRG.s, MLWE_PKE_HASH_PRG.e){2}). rndsem{1} 0. by auto.
+seq 3 6 : (#pre /\
+    (s',e',e''){1} = 
+    (MLWE_PKE_HASH_PRG.s', MLWE_PKE_HASH_PRG.e', MLWE_PKE_HASH_PRG.e''){2}). rndsem{1} 0. by auto.
+
+  wp. call(_: true). auto. call (_: true). by auto.
+
+have -> : Pr[PRG_KG.IND(PRG_KG.PRGi, D_KG(A)).main() @ &m : res] =
+          Pr[PRG_ENC.IND(PRG_ENC.PRGr, D_ENC(A)).main() @ &m : res].
+            + byequiv => //. proc;inline *. sim. swap {2} 6 -5. by auto.
+by ring.
+qed.
+
+end section.
