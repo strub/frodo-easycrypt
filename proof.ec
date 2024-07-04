@@ -1,7 +1,7 @@
 require import AllCore Distr List SmtMap Dexcepted PKE_ROM StdOrder.
 require (**RndExcept **) LWE FLPRG.
 
-theory MLWE_PKE_Hash.
+theory LWE_PKE_Hash.
 
 clone import LWE as LWE_.
 import Matrix.
@@ -78,7 +78,7 @@ clone import PKE with
   type plaintext <- plaintext,
   type ciphertext <- ciphertext.
 
-module MLWE_PKE_HASH : Scheme = {
+module LWE_PKE_HASH : Scheme = {
 
   proc kg() : pkey * skey = {
      var r,pk,sk;
@@ -101,7 +101,7 @@ module MLWE_PKE_HASH : Scheme = {
   }
 }.
 
-module MLWE_PKE_HASH_PROC : Scheme = {
+module LWE_PKE_HASH_PROC : Scheme = {
   proc kg(): pkey * skey = {
     var sd,s,e,t;
     sd <$ dseed;
@@ -145,7 +145,7 @@ clone import FLPRG as PRG_ENC with
   op dout <- prg_enc_ideal
   proof*.
 
-module MLWE_PKE_HASH_PRG : Scheme  = {
+module LWE_PKE_HASH_PRG : Scheme  = {
   var sd : seed
   var s  : matrix
   var e  : matrix
@@ -167,18 +167,18 @@ module MLWE_PKE_HASH_PRG : Scheme  = {
      return c_encode (b',v + m_encode m);
   }
 
-  include MLWE_PKE_HASH [dec]
+  include LWE_PKE_HASH [dec]
 }.
 
 module (D_KG(A : Adversary) : PRG_KG.Distinguisher)  = {
    proc distinguish(sd : seed, s : matrix, e : matrix) : bool = {
        var coins,b;
-       MLWE_PKE_HASH_PRG.sd <- sd;
-       MLWE_PKE_HASH_PRG.s <- s;
-       MLWE_PKE_HASH_PRG.e <- e;
+       LWE_PKE_HASH_PRG.sd <- sd;
+       LWE_PKE_HASH_PRG.s <- s;
+       LWE_PKE_HASH_PRG.e <- e;
        coins <$ drand;
-       (MLWE_PKE_HASH_PRG.s',MLWE_PKE_HASH_PRG.e',MLWE_PKE_HASH_PRG.e'') <- prg_enc coins;
-       b <@ CPA(MLWE_PKE_HASH_PRG,A).main();
+       (LWE_PKE_HASH_PRG.s',LWE_PKE_HASH_PRG.e',LWE_PKE_HASH_PRG.e'') <- prg_enc coins;
+       b <@ CPA(LWE_PKE_HASH_PRG,A).main();
        return b;
    }      
 }.
@@ -186,27 +186,27 @@ module (D_KG(A : Adversary) : PRG_KG.Distinguisher)  = {
 module (D_ENC(A : Adversary) : PRG_ENC.Distinguisher) = {
    proc distinguish(s' : matrix, e' : matrix, e'' : matrix) : bool = {
        var b;
-       (MLWE_PKE_HASH_PRG.sd,MLWE_PKE_HASH_PRG.s,MLWE_PKE_HASH_PRG.e) <$ prg_kg_ideal;
-       MLWE_PKE_HASH_PRG.s' <- s';
-       MLWE_PKE_HASH_PRG.e' <- e';
-       MLWE_PKE_HASH_PRG.e'' <- e'';
-       b <@ CPA(MLWE_PKE_HASH_PRG,A).main();
+       (LWE_PKE_HASH_PRG.sd,LWE_PKE_HASH_PRG.s,LWE_PKE_HASH_PRG.e) <$ prg_kg_ideal;
+       LWE_PKE_HASH_PRG.s' <- s';
+       LWE_PKE_HASH_PRG.e' <- e';
+       LWE_PKE_HASH_PRG.e'' <- e'';
+       b <@ CPA(LWE_PKE_HASH_PRG,A).main();
        return b;
    }      
 }.
 
 section.
-declare module A <: Adversary {-MLWE_PKE_HASH_PRG}.
+declare module A <: Adversary {-LWE_PKE_HASH_PRG}.
 
 lemma cpa_proc &m : 
-  Pr[CPA(MLWE_PKE_HASH,A).main() @ &m : res] -
-   Pr[CPA(MLWE_PKE_HASH_PROC,A).main() @ &m : res] = 
+  Pr[CPA(LWE_PKE_HASH,A).main() @ &m : res] -
+   Pr[CPA(LWE_PKE_HASH_PROC,A).main() @ &m : res] = 
      Pr [ PRG_KG.IND(PRG_KG.PRGr,D_KG(A)).main() @ &m : res ] -
         Pr [ PRG_KG.IND(PRG_KG.PRGi,D_KG(A)).main() @ &m : res ] +
      Pr [ PRG_ENC.IND(PRG_ENC.PRGr,D_ENC(A)).main() @ &m : res ] -
         Pr [ PRG_ENC.IND(PRG_ENC.PRGi, D_ENC(A)).main() @ &m : res ].
 proof. 
-have -> : Pr[CPA(MLWE_PKE_HASH,A).main() @ &m : res]  = 
+have -> : Pr[CPA(LWE_PKE_HASH,A).main() @ &m : res]  = 
   Pr [ PRG_KG.IND(PRG_KG.PRGr,D_KG(A)).main() @ &m : res ].
   byequiv => //.
   proc.
@@ -214,17 +214,17 @@ have -> : Pr[CPA(MLWE_PKE_HASH,A).main() @ &m : res]  =
   swap {1} 8 -4.
   by wp;call (: true);wp;rnd;call (_: true);auto => /> /#.
   
-have -> : Pr[CPA(MLWE_PKE_HASH_PROC, A).main() @ &m : res]   = 
+have -> : Pr[CPA(LWE_PKE_HASH_PROC, A).main() @ &m : res]   = 
         Pr[PRG_ENC.IND(PRGi, D_ENC(A)).main() @ &m : res].
 + byequiv => //.
   proc. inline *. swap {1} [11..13] -7. swap {2} 3 -1.  swap {2} 6 -4. swap {2} 4 5.
 seq 0 1: #pre; 1: by auto.
 seq 3 1 : (#pre /\
     (sd,s,e){1} = 
-    (MLWE_PKE_HASH_PRG.sd, MLWE_PKE_HASH_PRG.s, MLWE_PKE_HASH_PRG.e){2}). rndsem{1} 0. by auto.
+    (LWE_PKE_HASH_PRG.sd, LWE_PKE_HASH_PRG.s, LWE_PKE_HASH_PRG.e){2}). rndsem{1} 0. by auto.
 seq 3 6 : (#pre /\
     (s',e',e''){1} = 
-    (MLWE_PKE_HASH_PRG.s', MLWE_PKE_HASH_PRG.e', MLWE_PKE_HASH_PRG.e''){2}). rndsem{1} 0. by auto.
+    (LWE_PKE_HASH_PRG.s', LWE_PKE_HASH_PRG.e', LWE_PKE_HASH_PRG.e''){2}). rndsem{1} 0. by auto.
 
   wp. call(_: true). auto. call (_: true). by auto.
 
@@ -248,23 +248,19 @@ module LWE_PKE_HASH1 = {
     var sd,s,b;
     sd <$ dseed;
     s  <$ Chi_matrix n nb;
-    b  <$ Chi_matrix n nb;
+    b  <$ duni_matrix n nb;
     return (pk_encode (sd,b), sk_encode s);
   }
 
-  include MLWE_PKE_HASH_PROC [-kg]
+  include LWE_PKE_HASH_PROC [-kg]
 
 }.
 
-module B1(A : Adversary) : HAdv_T = {
+module B1(A : Adversary) : HAdv1_T = {
 
-  proc kg(sd : seed, b : matrix) : pkey * skey = {
-    return (pk_encode (sd,b), witness);
-  }
-  
-  proc guess(sd, _B : matrix) : bool = {
-    var pk, sk, m0, m1, c, b, b';
-    (pk,sk) <@ kg(sd,_B);
+  proc guess(sd, u : matrix) : bool = {
+    var pk, m0, m1, c, b, b';
+    pk <- pk_encode (sd,u);
     (m0, m1) <@ A.choose(pk);
     b <$ {0,1};
     c <@ LWE_PKE_HASH1.enc(pk, if b then m1 else m0);
@@ -272,3 +268,185 @@ module B1(A : Adversary) : HAdv_T = {
     return b' = b;
   }
 }.
+
+section.
+
+declare module A <: Adversary.
+
+lemma hop1_left &m: 
+  Pr[CPA(LWE_PKE_HASH_PROC,A).main() @ &m : res] =
+  Pr[LWE_H1(B1(A)).main(false) @ &m : res].
+proof.
+byequiv => //. 
+proc. inline *. 
+wp.
+call(:true); auto => /=. 
+call(:true); wp => /=.
+rnd{2}; wp. 
+by auto => /> => *;smt(duni_matrix_ll Chi_matrix_ll).
+qed.
+
+lemma hop1_right &m: 
+  Pr[LWE_H1(B1(A)).main(true) @ &m : res] = 
+  Pr[CPA(LWE_PKE_HASH1,A).main() @ &m : res].
+proof.
+byequiv => //.
+proc;inline *. 
+wp; call(:true); auto => /=.
+call(:true); wp => /=. 
+rnd;wp; do 2! rnd{1};rnd{2}.
+by wp;rnd; wp; auto; smt(duni_matrix_ll Chi_matrix_ll).
+qed.
+
+end section.
+
+(* Hop 2 *)
+
+module LWE_PKE_HASH2 = {
+
+  proc enc(pk : pkey, m : plaintext) : ciphertext = {
+    var _A,b', v;
+    _A <- H (pk_decode pk).`1;
+    b' <$ duni_matrix mb n;
+    v <$ duni_matrix mb nb;
+    return c_encode (b',v + m_encode m);  }
+
+  include LWE_PKE_HASH1 [-enc]
+
+}.
+
+
+module B2(A : Adversary) : HAdv2_T = {
+
+  proc enc(pk : pkey, m : plaintext, _B : matrix, v : matrix) : ciphertext = {
+    return c_encode ((_B, v + m_encode m));
+  }
+  
+  proc guess(sd : seed, u : matrix, _B : matrix, v : matrix) : bool = {
+    var pk, m0, m1, c, b, b';
+    pk <- pk_encode (sd,_B);
+    (m0, m1) <@ A.choose(pk);
+    b <$ {0,1};
+    c <@ enc(pk, if b then m1 else m0,u,v);
+    b' <@ A.guess(c);
+    return b' = b;
+  }
+
+}.
+
+section.
+
+declare module A <: Adversary.
+
+lemma hop2_left &m: 
+  Pr[CPA(LWE_PKE_HASH1,A).main() @ &m : res] =
+  Pr[LWE_H2(B2(A)).main(false) @ &m : res].
+proof.
+byequiv => //.
+proc. inline *. 
+swap {2} 7 -5.
+swap {2} 11 -8.
+swap {2} 13 -9.
+swap {2} 15 -10.
+(*
+swap {2} [11..12] -8.
+swap {2} [14..17] -9.
+*)
+seq 4 5 : (#pre /\ ={pk} /\ b0{1} = _B{2} /\ (pk_decode pk{2}).`1 = seed{2} /\ (pk_decode pk{2}).`2 = _B{2}); 1: by
+  auto; rnd{1};auto; smt(pk_encodeK Chi_matrix_ll).
+
+swap{2} [11..12] -10.
+wp;call(:true).
+admit. 
+qed.
+
+lemma hop2_right &m: 
+  Pr[LWE_H(B2(A)).main(true,true) @ &m : res] = 
+  Pr[CPA(LWE_PKE_HASH2,A).main() @ &m : res].
+proof.
+byequiv => //.
+proc; inline *. 
+swap {1} 7 -5.
+swap {1} [11..12] -8.
+swap {1} [14..17] -9.
+seq 7 4 : (#pre /\ ={t,pk} /\ (pk_decode pk{2}).`1 = sd{2} /\ (pk_decode pk{2}).`2 = t{2});
+  1: by auto; rnd{2};auto; smt(pk_encodeK dshort_ll).
+swap {1} [11..13] -9.
+by wp; call(_: true);wp;rnd;wp;rnd{1};rnd;wp;rnd{1};rnd{1};wp;rnd; 
+   call(_: true); auto;smt(duni_ll dshort_ll).
+qed.
+
+end section.
+
+(* Final game analysis *)
+
+section.
+
+declare module A <: Adversary {-LWE_PKE_HASH_PRG}.
+
+local module Game2(A : Adversary) = {
+  proc main() = {
+    var sd, s, t, m0, m1, u, v, b, b';
+    sd <$ dseed;
+    s <$ dshort;
+    t <$ duni;
+    (m0, m1) <@ A.choose(pk_encode (sd,t));
+    u <$duni;
+    v <$duni_R;
+    b' <@ A.guess(c_encode (u,v));
+    b <$ {0,1};
+    return b = b';
+  }
+}.
+
+local lemma game2_equiv &m :
+  Pr[CPA(LWE_PKE_HASH2,A).main() @ &m : res] = 
+  Pr[Game2(A).main() @ &m : res].
+proof.
+byequiv => //.
+proc; inline *.
+swap {2} 8 -3.
+call(_: true); wp.
+rnd (fun z, z &+ m_encode (if b then m1 else m0){2})
+    (fun z, z &- m_encode (if b then m1 else m0){2}).
+auto; call (_:true).
+auto => /> *; split => *; [ ring | split => *; [ring | smt()]].
+qed.
+
+local lemma game2_prob &m :
+  islossless A.guess => islossless A.choose =>
+  Pr[Game2(A).main() @ &m : res] = 1%r / 2%r.
+proof.
+move => A_guess_ll A_choose_ll.
+byphoare => //. 
+proc.
+rnd  (pred1 b')=> //=.
+conseq (: _ ==> true).
++ by move=> />; apply DBool.dbool1E.
+by islossless; smt(duni_ll dshort_ll). 
+qed.
+
+lemma main_theorem &m :
+  islossless A.guess => islossless A.choose =>
+  `| Pr[CPA(LWE_PKE_HASH,A).main() @ &m : res] -  1%r / 2%r | <=
+    `| Pr[LWE_H(B1(A)).main(false,false) @ &m : res] -
+       Pr[LWE_H(B1(A)).main(false,true) @ &m : res] | + 
+    `| Pr[LWE_H(B2(A)).main(true,false) @ &m : res] -
+       Pr[LWE_H(B2(A)).main(true,true) @ &m : res] | +
+    `| Pr [ PRG_KG.IND(PRG_KG.PRGr,D_KG(A)).main() @ &m : res ] -
+        Pr [ PRG_KG.IND(PRG_KG.PRGi,D_KG(A)).main() @ &m : res ] | +
+    `| Pr [ PRG_ENC.IND(PRG_ENC.PRGr,D_ENC(A)).main() @ &m : res ] -
+        Pr [ PRG_ENC.IND(PRG_ENC.PRGi, D_ENC(A)).main() @ &m : res ] |.
+proof.
+move => A_guess_ll A_choose_ll.
+have := (cpa_proc A &m).
+rewrite (hop1_left A &m).
+rewrite (hop1_right A &m).
+rewrite (hop2_left A &m).
+rewrite (hop2_right A &m).
+rewrite (game2_equiv &m).
+rewrite (game2_prob &m _ _) //.
+by smt().
+qed.
+
+end section.

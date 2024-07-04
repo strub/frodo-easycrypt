@@ -82,21 +82,26 @@ lemma Chi_matrix_ll m n : is_lossless (Chi_matrix m n).
 proof. apply/dmatrix_ll /Chi_ll. qed.
 
 module type Adv_T = {
-   proc guess(A : matrix, v : matrix) : bool
+   proc guess(A : matrix, u : matrix, v : matrix) : bool
 }.
 
 module LWE(Adv : Adv_T) = {
 
   proc main(b : bool) : bool = {
-    var b', _A, s, e, u0, u1;
+    var b', _A, s, e, u0, u1, _B, e', v0, v1;
     
     _A <$ duni_matrix n n;
     s <$ Chi_matrix n nb;
     e <$ Chi_matrix n nb;
     u0 <- _A * s + e;
     u1 <$ duni_matrix n nb;
+
+    _B <$ duni_matrix n nb;
+    e' <$ Chi_matrix mb n;
+    v0 <- _B * s + e';
+    v1 <$ duni_matrix mb nb;
     
-    b' <@ Adv.guess(_A, if b then u1 else u0);
+    b' <@ Adv.guess(_A, if b then u1 else u0, if b then v1 else v0);
     return b';
    }
 
@@ -111,13 +116,13 @@ op H : seed -> int -> int -> matrix.
 (* --------------------------------------------------------------------------- *)
 op [lossless] dseed : seed distr.
 
-module type HAdv_T = {
-   proc guess(sd : seed, v : matrix) : bool
+module type HAdv1_T = {
+   proc guess(sd : seed, u : matrix) : bool
 }.
 
-module LWE_H(Adv : HAdv_T) = {
+module LWE_H1(Adv : HAdv1_T) = {
 
-  proc main(tr b : bool) : bool = {
+  proc main(b : bool) : bool = {
     var seed, b', _A, s, e, u0, u1;
     
     seed <$ dseed;
@@ -126,8 +131,35 @@ module LWE_H(Adv : HAdv_T) = {
     e <$ Chi_matrix n nb;
     u0 <- _A * s + e;
     u1 <$ duni_matrix n nb;
-    
+
     b' <@ Adv.guess(seed, if b then u1 else u0);
+    return b';
+   }
+
+}.
+
+module type HAdv2_T = {
+   proc guess(sd : seed, u : matrix, _B : matrix, v : matrix) : bool
+}.
+
+module LWE_H2(Adv : HAdv2_T) = {
+
+  proc main(b : bool) : bool = {
+    var seed, b', _A, s, e, u0, u1, _B, e', v0, v1;
+    
+    seed <$ dseed;
+    _A <- H seed n n;
+    s <$ Chi_matrix mb n;
+    e <$ Chi_matrix mb n;
+    u0 <- s * _A + e;
+    u1 <$ duni_matrix mb n;
+
+    _B <$ duni_matrix n nb;
+    e' <$ Chi_matrix mb nb;
+    v0 <- s * _B + e';
+    v1 <$ duni_matrix mb nb;
+    
+    b' <@ Adv.guess(seed, if b then u1 else u0, _B, if b then v1 else v0);
     return b';
    }
 
