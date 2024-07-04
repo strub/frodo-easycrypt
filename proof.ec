@@ -235,3 +235,40 @@ by ring.
 qed.
 
 end section.
+
+(******************************************************************)
+(*       Game Hopping Security                                    *)
+(******************************************************************)
+
+
+(* Hop 1 *)
+
+module LWE_PKE_HASH1 = {
+  proc kg() : pkey * skey = {
+    var sd,s,b;
+    sd <$ dseed;
+    s  <$ Chi_matrix n nb;
+    b  <$ Chi_matrix n nb;
+    return (pk_encode (sd,b), sk_encode s);
+  }
+
+  include MLWE_PKE_HASH_PROC [-kg]
+
+}.
+
+module B1(A : Adversary) : HAdv_T = {
+
+  proc kg(sd : seed, b : matrix) : pkey * skey = {
+    return (pk_encode (sd,b), witness);
+  }
+  
+  proc guess(sd, _B : matrix) : bool = {
+    var pk, sk, m0, m1, c, b, b';
+    (pk,sk) <@ kg(sd,_B);
+    (m0, m1) <@ A.choose(pk);
+    b <$ {0,1};
+    c <@ LWE_PKE_HASH1.enc(pk, if b then m1 else m0);
+    b' <@ A.guess(c);
+    return b' = b;
+  }
+}.
