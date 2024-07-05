@@ -368,15 +368,17 @@ declare module A <: Adversary {-LWE_PKE_HASH_PRG}.
 
 local module Game2(A : Adversary) = {
   proc main() = {
-    var sd, s, t, m0, m1, u, v, b, b';
+    var sd, _B, m0, m1, m, _B', v, c, b, b';
     sd <$ dseed;
-    s <$ dshort;
-    t <$ duni;
-    (m0, m1) <@ A.choose(pk_encode (sd,t));
-    u <$duni;
-    v <$duni_R;
-    b' <@ A.guess(c_encode (u,v));
+    _B <$ duni_matrix n nb;
+    (m0, m1) <@ A.choose(pk_encode (sd,_B));
     b <$ {0,1};
+    m <- if b then m1 else m0;
+
+    _B' <$ duni_matrix mb n;
+    v <$ duni_matrix mb nb;
+    c <- c_encode(_B', v);
+    b' <@ A.guess(c);
     return b = b';
   }
 }.
@@ -387,11 +389,12 @@ local lemma game2_equiv &m :
 proof.
 byequiv => //.
 proc; inline *.
-swap {2} 8 -3.
-call(_: true); wp.
-rnd (fun z, z &+ m_encode (if b then m1 else m0){2})
-    (fun z, z &- m_encode (if b then m1 else m0){2}).
-auto; call (_:true).
+call(_: true). wp.
+rnd (fun z, z + m_encode m{2})
+    (fun z, z - m_encode m{2}).
+rnd. wp. rnd. call(_:true). wp. rnd. rnd{1}. rnd.
+auto => /> *. rewrite Chi_matrix_ll => /> ? ? ? ? result_R bL *.
+split => vR *. rewrite -addmA addNm eq_sym. apply lin_addm0. 
 auto => /> *; split => *; [ ring | split => *; [ring | smt()]].
 qed.
 
