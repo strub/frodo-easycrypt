@@ -15,6 +15,10 @@ type raw_ciphertext = matrix * matrix.
 op m_encode : plaintext -> matrix. 
 op m_decode : matrix -> plaintext.
 
+axiom m_encode_rows m : rows (m_encode m) = mb.
+axiom m_encode_cols m : cols (m_encode m) = nb.
+
+
 op c_encode : raw_ciphertext -> ciphertext.
 op c_decode : ciphertext -> raw_ciphertext.
 
@@ -352,8 +356,8 @@ byequiv => //.
 proc. inline *. 
 swap {1} 11 -9. swap {1} 12 -8. swap{1} 8 -3. swap {1} [14..17] -9. swap {1} 16 -3. swap {1} 15 -2.
 
-seq 5 4 : (#pre /\ ={pk} /\ _B{1} = b0{2} /\ (pk_decode pk{2}).`1 = sd{2} /\ (pk_decode pk{2}).`2 = b0{2});
-  1: by wp; rnd; rnd{2}; wp; rnd; auto => />; rewrite !Chi_matrix_ll => // *; rewrite pk_encodeK => //.
+seq 5 4 : (#pre /\ ={pk} /\ _B{1} = b0{2} /\ (pk_decode pk{2}).`1 = sd{2} /\ (pk_decode pk{2}).`2 = b0{2}).
+  by wp; rnd; rnd{2}; wp; rnd; auto => />; rewrite !Chi_matrix_ll => // *;rewrite pk_encodeK. 
 wp. call (:true). wp. do 2! rnd. do 3! rnd{1}. wp. rnd. call (:true).
 auto => />. rewrite !Chi_matrix_ll => //.
 qed.
@@ -383,6 +387,7 @@ local module Game2(A : Adversary) = {
   }
 }.
 
+
 local lemma game2_equiv &m :
   Pr[CPA(LWE_PKE_HASH2,A).main() @ &m : res] = 
   Pr[Game2(A).main() @ &m : res].
@@ -394,8 +399,28 @@ rnd (fun z, z + m_encode m{2})
     (fun z, z - m_encode m{2}).
 rnd. wp. rnd. call(_:true). wp. rnd. rnd{1}. rnd.
 auto => /> *. rewrite Chi_matrix_ll => /> ? ? ? ? result_R bL *.
-split => vR *. rewrite -addmA addNm eq_sym. apply lin_addm0. 
-auto => /> *; split => *; [ ring | split => *; [ring | smt()]].
+split. 
++ move => vR ?.
+  rewrite -addmA addNm m_encode_rows m_encode_cols.
+  have := size_dmatrix duni_R mb nb vR _ _ _; 1..3:smt(gt0_mb gt0_nb).
+  by move => [#] <- <-; rewrite addm0. 
+move => ?;split.
+move => vR0 ?. 
+have : size ((vR0 - m_encode (if bL then result_R.`2 else result_R.`1))) = (mb,nb); last by 
+  smt(duni_matrix_fu duni_matrix_uni mu1_uni gt0_mb gt0_nb).
+by  smt(size_addm size_neg gt0_mb gt0_nb size_dmatrix m_encode_rows m_encode_cols).
+
+move => ? vL ?;split. 
++ apply duni_matrix_fu;1,2:smt(gt0_mb gt0_nb).
+  rewrite size_addm.
+  + by rewrite m_encode_rows m_encode_cols;smt(size_dmatrix gt0_mb gt0_nb).
+  by smt(size_dmatrix gt0_mb gt0_nb).
+
+move => ?;split.
++ rewrite -addmA addmN m_encode_rows m_encode_cols.
+  have := size_dmatrix duni_R mb nb vL _ _ _; 1..3:smt(gt0_mb gt0_nb).
+  by move => [#] <- <-; rewrite addm0. 
+by smt().
 qed.
 
 local lemma game2_prob &m :
@@ -405,19 +430,20 @@ proof.
 move => A_guess_ll A_choose_ll.
 byphoare => //. 
 proc.
-rnd  (pred1 b')=> //=.
+swap [4..5] 4;wp.
+rnd  (fun bb => bb = b') => //=.
 conseq (: _ ==> true).
 + by move=> />; apply DBool.dbool1E.
-by islossless; smt(duni_ll dshort_ll). 
+by islossless; smt(duni_matrix_ll Chi_matrix_ll). 
 qed.
 
 lemma main_theorem &m :
   islossless A.guess => islossless A.choose =>
   `| Pr[CPA(LWE_PKE_HASH,A).main() @ &m : res] -  1%r / 2%r | <=
-    `| Pr[LWE_H(B1(A)).main(false,false) @ &m : res] -
-       Pr[LWE_H(B1(A)).main(false,true) @ &m : res] | + 
-    `| Pr[LWE_H(B2(A)).main(true,false) @ &m : res] -
-       Pr[LWE_H(B2(A)).main(true,true) @ &m : res] | +
+    `| Pr[LWE_H1(B1(A)).main(false) @ &m : res] -
+       Pr[LWE_H1(B1(A)).main(true) @ &m : res] | + 
+    `| Pr[LWE_H2(B2(A)).main(false) @ &m : res] -
+       Pr[LWE_H2(B2(A)).main(true) @ &m : res] | +
     `| Pr [ PRG_KG.IND(PRG_KG.PRGr,D_KG(A)).main() @ &m : res ] -
         Pr [ PRG_KG.IND(PRG_KG.PRGi,D_KG(A)).main() @ &m : res ] | +
     `| Pr [ PRG_ENC.IND(PRG_ENC.PRGr,D_ENC(A)).main() @ &m : res ] -
