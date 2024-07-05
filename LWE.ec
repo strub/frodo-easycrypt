@@ -82,13 +82,13 @@ lemma Chi_matrix_ll m n : is_lossless (Chi_matrix m n).
 proof. apply/dmatrix_ll /Chi_ll. qed.
 
 module type Adv_T = {
-   proc guess(A : matrix, u : matrix, v : matrix) : bool
+   proc guess(A : matrix, uvw : matrix * matrix * matrix) : bool
 }.
 
 module LWE(Adv : Adv_T) = {
 
   proc main(b : bool) : bool = {
-    var b', _A, s, e, u0, u1, _B, e', v0, v1;
+    var b', _A, s, e, u0, u1, s', e', v0, v1, _B, e'', w0, w1;
     
     _A <$ duni_matrix n n;
     s <$ Chi_matrix n nb;
@@ -96,12 +96,17 @@ module LWE(Adv : Adv_T) = {
     u0 <- _A * s + e;
     u1 <$ duni_matrix n nb;
 
-    _B <$ duni_matrix n nb;
+    s' <$ Chi_matrix mb n;
     e' <$ Chi_matrix mb n;
-    v0 <- _B * s + e';
-    v1 <$ duni_matrix mb nb;
+    v0 <- s' * _A + e';
+    v1 <$ duni_matrix mb n;
+
+    _B <$ duni_matrix n nb;
+    e'' <$ Chi_matrix mb nb;
+    w0 <- s' * _B + e'';
+    w1 <$ duni_matrix mb nb;
     
-    b' <@ Adv.guess(_A, if b then u1 else u0, if b then v1 else v0);
+    b' <@ Adv.guess(_A, if b then (u1,v1,w1) else (u0,v0,w0));
     return b';
    }
 
@@ -139,27 +144,28 @@ module LWE_H1(Adv : HAdv1_T) = {
 }.
 
 module type HAdv2_T = {
-   proc guess(sd : seed, u : matrix, _B : matrix, v : matrix) : bool
+   proc guess(sd : seed, _B : matrix, uv : matrix * matrix) : bool
 }.
 
 module LWE_H2(Adv : HAdv2_T) = {
 
   proc main(b : bool) : bool = {
-    var seed, b', _A, s, e, u0, u1, _B, e', v0, v1;
+    var seed, b', _A, s', e', u0, u1, _B, e'', v0, v1;
     
     seed <$ dseed;
+    _B <$ duni_matrix n nb;
+    s' <$ Chi_matrix mb n;
+    e' <$ Chi_matrix mb n;
+    e'' <$ Chi_matrix mb nb;
+
     _A <- H seed n n;
-    s <$ Chi_matrix mb n;
-    e <$ Chi_matrix mb n;
-    u0 <- s * _A + e;
+    u0 <- s' * _A + e';
     u1 <$ duni_matrix mb n;
 
-    _B <$ duni_matrix n nb;
-    e' <$ Chi_matrix mb nb;
-    v0 <- s * _B + e';
+    v0 <- s' * _B + e'';
     v1 <$ duni_matrix mb nb;
     
-    b' <@ Adv.guess(seed, if b then u1 else u0, _B, if b then v1 else v0);
+    b' <@ Adv.guess(seed, _B, if b then (u1, v1) else (u0, v0));
     return b';
    }
 

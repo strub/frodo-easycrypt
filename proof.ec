@@ -279,11 +279,7 @@ lemma hop1_left &m:
 proof.
 byequiv => //. 
 proc. inline *. 
-wp.
-call(:true); auto => /=. 
-call(:true); wp => /=.
-rnd{2}; wp. 
-by auto => /> => *;smt(duni_matrix_ll Chi_matrix_ll).
+wp. sim. wp. rnd{2}. wp. auto => /= />. rewrite duni_matrix_ll => //.
 qed.
 
 lemma hop1_right &m: 
@@ -292,10 +288,8 @@ lemma hop1_right &m:
 proof.
 byequiv => //.
 proc;inline *. 
-wp; call(:true); auto => /=.
-call(:true); wp => /=. 
-rnd;wp; do 2! rnd{1};rnd{2}.
-by wp;rnd; wp; auto; smt(duni_matrix_ll Chi_matrix_ll).
+wp. sim. wp. rnd. wp. rnd{1}. rnd. wp. rnd.
+auto => /= />. rewrite Chi_matrix_ll => //.
 qed.
 
 end section.
@@ -317,17 +311,14 @@ module LWE_PKE_HASH2 = {
 
 
 module B2(A : Adversary) : HAdv2_T = {
-
-  proc enc(pk : pkey, m : plaintext, _B : matrix, v : matrix) : ciphertext = {
-    return c_encode ((_B, v + m_encode m));
-  }
   
-  proc guess(sd : seed, u : matrix, _B : matrix, v : matrix) : bool = {
-    var pk, m0, m1, c, b, b';
+  proc guess(sd : seed, _B : matrix, b'v : matrix * matrix) : bool = {
+    var pk, m0, m1, c, b, m, b';
     pk <- pk_encode (sd,_B);
     (m0, m1) <@ A.choose(pk);
     b <$ {0,1};
-    c <@ enc(pk, if b then m1 else m0,u,v);
+    m <- if b then m1 else m0;
+    c <- c_encode((b'v.`1, b'v.`2 + m_encode m));
     b' <@ A.guess(c);
     return b' = b;
   }
@@ -344,36 +335,27 @@ lemma hop2_left &m:
 proof.
 byequiv => //.
 proc. inline *. 
-swap {2} 7 -5.
-swap {2} 11 -8.
-swap {2} 13 -9.
-swap {2} 15 -10.
-(*
-swap {2} [11..12] -8.
-swap {2} [14..17] -9.
-*)
-seq 4 5 : (#pre /\ ={pk} /\ b0{1} = _B{2} /\ (pk_decode pk{2}).`1 = seed{2} /\ (pk_decode pk{2}).`2 = _B{2}); 1: by
-  auto; rnd{1};auto; smt(pk_encodeK Chi_matrix_ll).
+wp. swap {2} 11 -9. swap {2} 12 -8. swap {2} [14..16] -9.
 
-swap{2} [11..12] -10.
-wp;call(:true).
-admit. 
+seq 4 5 : (#pre /\ ={pk} /\ b0{1} = _B{2} /\ (pk_decode pk{2}).`1 = seed{2} /\ (pk_decode pk{2}).`2 = _B{2});
+  1: by wp; rnd; rnd{1}; wp; rnd; auto; rewrite !Chi_matrix_ll => /> *; rewrite pk_encodeK => //.
+
+  call (:true). wp. rnd{2}. wp. rnd{2}. do 2! wp. do 3! rnd. do 2! wp. rnd. call (:true). 
+auto. rewrite! duni_matrix_ll => //.
 qed.
 
 lemma hop2_right &m: 
-  Pr[LWE_H(B2(A)).main(true,true) @ &m : res] = 
+  Pr[LWE_H2(B2(A)).main(true) @ &m : res] = 
   Pr[CPA(LWE_PKE_HASH2,A).main() @ &m : res].
 proof.
 byequiv => //.
-proc; inline *. 
-swap {1} 7 -5.
-swap {1} [11..12] -8.
-swap {1} [14..17] -9.
-seq 7 4 : (#pre /\ ={t,pk} /\ (pk_decode pk{2}).`1 = sd{2} /\ (pk_decode pk{2}).`2 = t{2});
-  1: by auto; rnd{2};auto; smt(pk_encodeK dshort_ll).
-swap {1} [11..13] -9.
-by wp; call(_: true);wp;rnd;wp;rnd{1};rnd;wp;rnd{1};rnd{1};wp;rnd; 
-   call(_: true); auto;smt(duni_ll dshort_ll).
+proc. inline *. 
+swap {1} 11 -9. swap {1} 12 -8. swap{1} 8 -3. swap {1} [14..17] -9. swap {1} 16 -3. swap {1} 15 -2.
+
+seq 5 4 : (#pre /\ ={pk} /\ _B{1} = b0{2} /\ (pk_decode pk{2}).`1 = sd{2} /\ (pk_decode pk{2}).`2 = b0{2});
+  1: by wp; rnd; rnd{2}; wp; rnd; auto => />; rewrite !Chi_matrix_ll => // *; rewrite pk_encodeK => //.
+wp. call (:true). wp. do 2! rnd. do 3! rnd{1}. wp. rnd. call (:true).
+auto => />. rewrite !Chi_matrix_ll => //.
 qed.
 
 end section.
