@@ -59,7 +59,7 @@ proof.
     smt().
 qed.
 
-(* I want induction tactics, operate on proof term just like the other data types *)
+(* I want to be able to ooperate on proof term just like the other data types *)
 lemma decode_correctness k: 0 <= k < (2^B) => dc (ec k) = k.
 proof.
     move => [#] hk1 hk2.
