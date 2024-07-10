@@ -387,20 +387,6 @@ local module Game2(A : Adversary) = {
   }
 }.
 
-lemma duni_matrix_rows (r c: int) (m: matrix): 0 <= r => 0 <= c => m \in duni_matrix r c => rows m = r.
-proof.
-  move => *.
-  have : size m = (r, c); 1: by apply (size_dmatrix duni_R r c m).
-  move => [#] <- * //.
-qed.
-
-lemma duni_matrix_cols (r c: int) (m: matrix): 0 <= r => 0 <= c => m \in duni_matrix r c => cols m = c.
-proof.
-  move => *.
-  have : size m = (r, c); 1: by apply (size_dmatrix duni_R r c m).
-  move => [#] ? <- //.
-qed.
-
 local lemma game2_equiv &m :
   Pr[CPA(LWE_PKE_HASH2,A).main() @ &m : res] = 
   Pr[Game2(A).main() @ &m : res].
