@@ -387,6 +387,19 @@ local module Game2(A : Adversary) = {
   }
 }.
 
+lemma duni_matrix_rows (r c: int) (m: matrix): 0 <= r => 0 <= c => m \in duni_matrix r c => rows m = r.
+proof.
+  move => *.
+  have : size m = (r, c); 1: by apply (size_dmatrix duni_R r c m).
+  move => [#] <- * //.
+qed.
+
+lemma duni_matrix_cols (r c: int) (m: matrix): 0 <= r => 0 <= c => m \in duni_matrix r c => cols m = c.
+proof.
+  move => *.
+  have : size m = (r, c); 1: by apply (size_dmatrix duni_R r c m).
+  move => [#] ? <- //.
+qed.
 
 local lemma game2_equiv &m :
   Pr[CPA(LWE_PKE_HASH2,A).main() @ &m : res] = 
@@ -399,11 +412,13 @@ rnd (fun z, z + m_encode m{2})
     (fun z, z - m_encode m{2}).
 rnd. wp. rnd. call(_:true). wp. rnd. rnd{1}. rnd.
 auto => /> *. rewrite Chi_matrix_ll => /> ? ? ? ? result_R bL *.
+have h: forall (m: matrix), m \in duni_matrix mb nb => size m = (mb, nb).
+   move => *. 
+   apply (size_dmatrix duni_R mb nb) => //; 1..2: by smt (gt0_mb gt0_nb).
 split. 
-+ move => vR ?.
-  rewrite -addmA addNm m_encode_rows m_encode_cols.
-  have := size_dmatrix duni_R mb nb vR _ _ _; 1..3:smt(gt0_mb gt0_nb).
-  by move => [#] <- <-; rewrite addm0. 
++ move => vR *.
+  rewrite -addmA addNm m_encode_rows m_encode_cols eq_sym.
+  smt (lin_addm0 gt0_mb gt0_nb).
 move => ?;split.
 move => vR0 ?. 
 have : size ((vR0 - m_encode (if bL then result_R.`2 else result_R.`1))) = (mb,nb); last by 
@@ -418,8 +433,7 @@ move => ? vL ?;split.
 
 move => ?;split.
 + rewrite -addmA addmN m_encode_rows m_encode_cols.
-  have := size_dmatrix duni_R mb nb vL _ _ _; 1..3:smt(gt0_mb gt0_nb).
-  by move => [#] <- <-; rewrite addm0. 
+  by smt(lin_addm0 gt0_mb gt0_nb).
 by smt().
 qed.
 
