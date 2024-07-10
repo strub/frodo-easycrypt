@@ -15,16 +15,16 @@
         "stable": "stable"
       },
       "locked": {
-        "lastModified": 1718658122,
-        "narHash": "sha256-kdO5+2KkS8IghlEH979BqGg4hUAswRe2YNioPYCQ8zs=",
+        "lastModified": 1720168760,
+        "narHash": "sha256-tSUBdZmNeB1tURt7fqeH/xKArumzsE14PwsI8beDlro=",
         "owner": "Easycrypt",
         "repo": "easycrypt",
-        "rev": "1ad6fedd02da81c549b6d74908252b585bd2ea18",
+        "rev": "a9e31ff5f758ef62453d76de382a10ee718afc51",
         "type": "github"
       },
       "original": {
         "owner": "Easycrypt",
-        "ref": "1ad6fedd02da81c549b6d74908252b585bd2ea18",
+        "ref": "a9e31ff5f758ef62453d76de382a10ee718afc51",
         "repo": "easycrypt",
         "type": "github"
       }
@@ -101,17 +101,17 @@
     "jasmin-nightly": {
       "flake": false,
       "locked": {
-        "lastModified": 1717397022,
-        "narHash": "sha256-sVViTEZMAsP6y9xswajvl8inaeWDA7rG/eGu2KM6XtM=",
+        "lastModified": 1720533296,
+        "narHash": "sha256-GKqk5pYrq9oz7njTpaASlA5JVIcf6RQYcsSc6X/y6NA=",
         "owner": "jasmin-lang",
         "repo": "jasmin",
-        "rev": "83e232e0d0a1c056e6a66e04ff76379c4b5a376b",
+        "rev": "e4640e7dcdb01d1ba63617a5d78456e1209d699c",
         "type": "github"
       },
       "original": {
         "owner": "jasmin-lang",
         "repo": "jasmin",
-        "rev": "83e232e0d0a1c056e6a66e04ff76379c4b5a376b",
+        "rev": "e4640e7dcdb01d1ba63617a5d78456e1209d699c",
         "type": "github"
       }
     },
@@ -149,16 +149,16 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1707092692,
-        "narHash": "sha256-ZbHsm+mGk/izkWtT4xwwqz38fdlwu7nUUKXTOmm4SyE=",
+        "lastModified": 1720386169,
+        "narHash": "sha256-NGKVY4PjzwAa4upkGtAMz1npHGoRzWotlSnVlqI40mo=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "faf912b086576fd1a15fca610166c98d47bc667e",
+        "rev": "194846768975b7ad2c4988bdb82572c00222c0d7",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-unstable",
+        "ref": "nixos-24.05",
         "repo": "nixpkgs",
         "type": "github"
       }

@@ -2,14 +2,14 @@
   description = "easycrypt-test";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     easycrypt-nightly = {
-      url = "github:Easycrypt/easycrypt?ref=1ad6fedd02da81c549b6d74908252b585bd2ea18";
+      url = "github:Easycrypt/easycrypt?ref=a9e31ff5f758ef62453d76de382a10ee718afc51";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     jasmin-nightly = {
-        url = "github:jasmin-lang/jasmin/83e232e0d0a1c056e6a66e04ff76379c4b5a376b";
-        flake = false;
+      url = "github:jasmin-lang/jasmin/e4640e7dcdb01d1ba63617a5d78456e1209d699c";
+      flake = false;
     };
 
     flake-parts = {
